@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELITE Panel - Lab Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 antialiased overflow-hidden select-none">
+
+    <div id="page-login" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-950 px-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full space-y-6 border border-blue-100">
+            <div class="text-center">
+                <h2 class="text-3xl font-extrabold text-blue-950 tracking-tight">ELITE</h2>
+                <p class="text-slate-400 text-xs mt-1 font-medium">Digital Twin & Energy Management System</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Username Admin</label>
+                    <input type="text" id="input-user" value="admin@elite.com" class="w-full mt-1 p-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Password</label>
+                    <input type="password" id="input-pass" value="capstone" class="w-full mt-1 p-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 text-sm">
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all transform active:scale-95 text-sm cursor-pointer">Masuk ke Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-dashboard" class="flex h-screen w-screen hidden">
+        
+        <aside class="w-64 bg-[#1e293b] text-white flex flex-col justify-between shadow-xl z-10 border-r border-slate-800">
+            <div>
+                <div class="p-6 border-b border-slate-800">
+                    <h1 class="font-extrabold tracking-widest text-xl text-white">ELITE</h1>
+                </div>
+                <nav class="p-4 space-y-1">
+                    <button id="menu-monitoring" onclick="switchMenu('monitoring')" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow cursor-pointer">Dashboard Monitoring</button>
+                    <button id="menu-twin" onclick="switchMenu('twin')" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800 hover:text-white shadow-none cursor-pointer">Digital Twin</button>
+                    <button id="menu-settings" onclick="switchMenu('settings')" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800 hover:text-white shadow-none cursor-pointer">System Settings</button>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/40">
+                <div class="text-xs">
+                    <p class="font-bold text-slate-300">Admin Lab</p>
+                    <p id="db-status-badge" class="text-[10px] text-amber-400 font-semibold">Connecting to Firebase...</p>
+                </div>
+                <button onclick="handleSignOut()" class="text-slate-400 hover:text-rose-400 text-xs font-bold px-2 py-1 rounded hover:bg-slate-800 transition cursor-pointer">Sign Out</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 bg-slate-50 overflow-y-auto p-8 space-y-6">
+            
+            <div id="content-monitoring" class="menu-content space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight">Dashboard Monitoring</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Real-time virtual replication of active laboratory electrical and thermal parameters.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+                        <div>
+                            <h4 class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Instrument: HVAC-01 (AC Room)</h4>
+                            <div class="mt-2 flex justify-between items-baseline">
+                                <span id="b1-w" class="text-2xl font-black text-slate-800">0.0</span>
+                                <span class="text-slate-400 text-xs font-semibold">W</span>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-y-1.5 text-[11px] font-mono text-slate-400">
+                                <div>Voltase: <span id="b1-v" class="text-slate-700 font-bold">0</span> V</div>
+                                <div>Arus: <span id="b1-i" class="text-slate-700 font-bold">0</span> A</div>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b1-temp" class="text-slate-800 font-bold">0.0</span>°C
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+                        <div>
+                            <h4 class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Instrument: PSU-01 (Power Supply)</h4>
+                            <div class="mt-2 flex justify-between items-baseline">
+                                <span id="b2-w" class="text-2xl font-black text-slate-800">0.0</span>
+                                <span class="text-slate-400 text-xs font-semibold">W</span>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-y-1.5 text-[11px] font-mono text-slate-400">
+                                <div>Voltase: <span id="b2-v" class="text-slate-700 font-bold">0</span> V</div>
+                                <div>Arus: <span id="b2-i" class="text-slate-700 font-bold">0</span> A</div>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b2-temp" class="text-slate-800 font-bold">0.0</span>°C
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+                        <div>
+                            <h4 class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Instrument: SRV-01 (PC Server)</h4>
+                            <div class="mt-2 flex justify-between items-baseline">
+                                <span id="b3-w" class="text-2xl font-black text-slate-800">0.0</span>
+                                <span class="text-slate-400 text-xs font-semibold">W</span>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-y-1.5 text-[11px] font-mono text-slate-400">
+                                <div>Voltase: <span id="b3-v" class="text-slate-700 font-bold">0</span> V</div>
+                                <div>Arus: <span id="b3-i" class="text-slate-700 font-bold">0</span> A</div>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b3-temp" class="text-slate-800 font-bold">0.0</span>°C
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/60">
+                        <h4 class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Total Cumulative Power Load</h4>
+                        <div class="mt-2 flex justify-between items-baseline"><span id="total-w" class="text-3xl font-black text-slate-800">0.0</span><span class="text-slate-400 text-sm font-bold">W</span></div>
+                        <p class="text-[10px] text-emerald-500 font-semibold mt-1">Status: NORMAL</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/60">
+                        <h4 class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Financial Burn Rate / Hour</h4>
+                        <div class="mt-2 flex justify-between items-baseline"><span id="total-cash" class="text-xl font-extrabold text-slate-800">Rp 0,00</span><span class="text-slate-400 text-xs font-medium">/ jam</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-sm">
+                    <h3 class="text-slate-700 font-bold text-xs uppercase tracking-wider mb-3">Real-Time Power Consumption Tracks (Watt)</h3>
+                    <div class="h-60"><canvas id="chartLineRealtime"></canvas></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
+                    <h3 class="text-slate-700 font-bold text-xs uppercase tracking-wider mb-3">Data History Log (Last 10 Records)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider bg-slate-50/70">
+                                    <th class="p-3">Timestamp</th><th class="p-3">Instrument Name</th><th class="p-3">Power</th><th class="p-3">Electrical Net</th><th class="p-3">DHT22 Temp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-log-body" class="text-slate-600 font-medium divide-y divide-slate-100">
+                                <tr id="no-data-row"><td colspan="5" class="p-3 text-center text-slate-400 py-6">Waiting for incoming data stream...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-twin" class="menu-content hidden space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight">Digital Twin</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Interactive virtual replication mapping active nodes inside the Power System & Automation Lab.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-slate-950 p-6 rounded-2xl shadow-inner h-[500px] relative overflow-hidden border border-slate-800 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:20px_20px]">
+                        
+                        <div class="absolute top-4 left-4 z-30 flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded border border-slate-800">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            <span class="text-[10px] font-mono text-slate-300 uppercase tracking-widest font-bold">LABORATORY TOPOLOGY BLUEPRINT</span>
+                        </div>
+
+                        <div class="absolute top-6 left-6 w-[220px] h-[180px] border border-blue-500/20 bg-blue-500/[0.01] rounded p-3 z-10 pointer-events-none">
+                            <span class="text-[9px] font-mono text-blue-400/80 uppercase font-bold tracking-wider">[ZONE C] SUBSTATION HVAC</span>
+                        </div>
+
+                        <div class="absolute top-6 right-6 w-[220px] h-[180px] border border-amber-500/20 bg-amber-500/[0.01] rounded p-3 z-10 text-right pointer-events-none">
+                            <span class="text-[9px] font-mono text-amber-400/80 uppercase font-bold tracking-wider block whitespace-nowrap">[ZONE A] GRID MONITOR RACK</span>
+                        </div>
+
+                        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[340px] h-[160px] border border-emerald-500/20 bg-emerald-500/[0.01] rounded p-3 z-10 pointer-events-none">
+                            <span class="text-[9px] font-mono text-emerald-400/80 uppercase font-bold tracking-wider text-center block">[ZONE B] HEAVY LOAD BENCH</span>
+                        </div>
+
+                        <button onclick="triggerNodeClick('ac')" class="absolute group focus:outline-none z-20 cursor-pointer flex flex-col items-center space-y-1" style="top: 85px; left: 65px;">
+                            <div class="w-36 h-16 bg-slate-900 border-2 border-blue-500 rounded-lg p-2 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.2)] transition duration-200 group-hover:border-blue-400 group-hover:shadow-[0_0_25px_rgba(59,130,246,0.4)]">
+                                <div class="w-full h-1 bg-blue-500/30 rounded"></div>
+                                <div class="flex justify-between items-center px-1">
+                                    <span class="font-mono text-[11px] font-black text-blue-400 tracking-wider">HVAC-01</span>
+                                    <div class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></div>
+                                </div>
+                                <div class="w-full flex justify-between px-2 space-x-1 mt-0.5">
+                                    <div class="h-[3px] bg-slate-700 flex-1 rounded-sm"></div>
+                                    <div class="h-[3px] bg-slate-700 flex-1 rounded-sm"></div>
+                                    <div class="h-[3px] bg-slate-700 flex-1 rounded-sm"></div>
+                                    <div class="h-[3px] bg-slate-700 flex-1 rounded-sm"></div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="triggerNodeClick('srv')" class="absolute group focus:outline-none z-20 cursor-pointer flex flex-col items-center" style="top: 85px; right: 65px;">
+                            <div class="w-36 h-16 bg-slate-900 border-2 border-amber-500 rounded-lg p-2 flex items-center justify-between space-x-2 shadow-[0_0_15px_rgba(245,158,11,0.2)] transition duration-200 group-hover:border-amber-400 group-hover:shadow-[0_0_25px_rgba(245,158,11,0.4)]">
+                                <div class="w-6 h-full bg-slate-900 border border-amber-500/30 rounded flex flex-col justify-between items-center p-0.5">
+                                    <div class="w-3 h-0.5 bg-amber-500/40 mt-0.5"></div>
+                                    <div class="space-y-0.5 flex flex-col items-center">
+                                        <div class="w-1 h-1 rounded-full bg-amber-400 animate-pulse"></div>
+                                        <div class="w-2 h-0.5 bg-slate-800"></div>
+                                        <div class="w-2 h-0.5 bg-slate-800"></div>
+                                    </div>
+                                    <div class="w-2 h-2 border border-slate-800 rounded-sm mb-0.5 bg-slate-900"></div>
+                                </div>
+                                <div class="flex-1 h-full flex flex-col items-center justify-between">
+                                    <div class="w-full h-10 bg-slate-900 border border-amber-500/30 rounded p-1 flex flex-col justify-between items-center">
+                                        <span class="font-mono text-[10px] font-black text-amber-400 tracking-wider">SRV-01</span>
+                                        <div class="w-full flex space-x-0.5 items-end justify-center h-1.5 opacity-60">
+                                            <div class="w-1 h-1 bg-amber-500/60 rounded-sm"></div>
+                                            <div class="w-1 h-2 bg-amber-400 rounded-sm"></div>
+                                            <div class="w-1 h-1.5 bg-amber-500/60 rounded-sm"></div>
+                                        </div>
+                                    </div>
+                                    <div class="w-1.5 h-1 bg-amber-500/40 -my-0.5"></div>
+                                    <div class="w-5 h-0.5 bg-amber-500/40 rounded-full"></div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="triggerNodeClick('psu')" class="absolute group focus:outline-none z-20 cursor-pointer flex flex-col items-center" style="bottom: 45px; left: 50%; transform: translateX(-50%);">
+                            <div class="w-44 h-20 bg-slate-900 border-2 border-emerald-500 rounded-xl p-3 flex justify-between items-center shadow-[0_0_15px_rgba(16,185,129,0.2)] transition duration-200 group-hover:border-emerald-400 group-hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]">
+                                <div class="w-20 h-full bg-emerald-950/80 border border-emerald-500/30 rounded-lg flex flex-col justify-center px-1.5 py-1 text-left">
+                                    <span class="text-[7px] font-mono text-emerald-400 uppercase font-bold tracking-wider">CH-01 OUTPUT</span>
+                                    <span class="text-xs font-mono font-black text-emerald-400 leading-tight">220.0 V</span>
+                                </div>
+                                <div class="flex flex-col justify-between h-full items-end pl-2">
+                                    <span class="font-mono text-[11px] font-black text-emerald-400 tracking-wider">PSU-01</span>
+                                    <div class="flex space-x-2 mt-1">
+                                        <div class="w-3 h-3 rounded-full bg-rose-600 border border-rose-500 shadow-sm"></div>
+                                        <div class="w-3 h-3 rounded-full bg-slate-950 border border-slate-800 shadow-sm"></div>
+                                        <div class="w-3 h-3 rounded-full bg-emerald-600 border border-emerald-500 shadow-sm"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/60 flex flex-col justify-between h-[500px] overflow-y-auto">
+                        <div class="space-y-3.5">
+                            <h3 class="text-[10px] font-bold text-slate-400 border-b pb-2 uppercase tracking-wider">AI Advanced Forecasting Panel</h3>
+                            <div id="ai-placeholder" class="py-24 text-center text-slate-400 space-y-2"><p class="text-xs font-medium">Klik salah satu node instrumen di denah untuk memanggil pemodelan regresi.</p></div>
+                            
+                            <div id="ai-result-box" class="hidden space-y-3">
+                                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex justify-between items-center">
+                                    <div><p class="text-[8px] uppercase font-bold text-slate-400">Selected Node</p><p id="ai-asset-name" class="text-xs font-black text-slate-800">Nama Alat</p></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-center text-[11px]">
+                                    <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100"><p class="text-[8px] font-bold text-slate-400 uppercase">Daya Aktual</p><p id="ai-current-w" class="font-bold text-slate-700">0 W</p></div>
+                                    <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100"><p class="text-[8px] font-bold text-slate-400 uppercase">Suhu Alat</p><p id="ai-node-temp" class="font-bold text-slate-700">0°C</p></div>
+                                </div>
+                                <div class="bg-blue-50/40 border border-blue-100 p-2 rounded-xl text-center">
+                                    <p class="text-[8px] font-bold text-blue-500 uppercase">Calculated Regression Formula</p>
+                                    <p id="ai-formula-text" class="text-xs font-mono font-black text-slate-700 mt-0.5">y = 0.00x + 0.00</p>
+                                </div>
+                                <div class="border border-slate-100 p-2 rounded-xl h-28 bg-white"><canvas id="chartAiRegression"></canvas></div>
+                                <div class="border border-slate-100 p-2.5 rounded-xl bg-slate-50/50 space-y-1.5">
+                                    <p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Multi-Timeline Load Projections</p>
+                                    <div class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                                        <div class="bg-white p-1.5 rounded-lg border border-slate-100"><p class="text-slate-400 font-medium">+5 Mnt</p><p id="ai-p5" class="font-bold text-blue-600">0 W</p></div>
+                                        <div class="bg-white p-1.5 rounded-lg border border-slate-100"><p class="text-slate-400 font-medium">+15 Mnt</p><p id="ai-p15" class="font-bold text-blue-600">0 W</p></div>
+                                        <div class="bg-white p-1.5 rounded-lg border border-slate-100"><p class="text-slate-400 font-medium">+30 Mnt</p><p id="ai-p30" class="font-bold text-blue-700">0 W</p></div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-[10px] font-mono border-t pt-2">
+                                    <div class="flex justify-between border-r pr-2"><span class="text-slate-400">R² Score:</span><span id="ai-r2" class="font-bold text-slate-700">0.0000</span></div>
+                                    <div class="flex justify-between pl-1"><span class="text-slate-400">RMSE:</span><span id="ai-rmse" class="font-bold text-slate-700">0.000</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-settings" class="menu-content hidden space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight">System Settings</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Konfigurasi ambang batas parameter instrumen kelistrikan.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200/60 max-w-xl shadow-sm">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">Maximum Power Threshold (Watt)</label>
+                            <input type="number" value="1200" class="w-full mt-1 p-2.5 rounded-lg border bg-slate-50 text-xs font-medium text-slate-700">
+                        </div>
+                        <button onclick="alert('Configuration updated successfully!')" class="bg-blue-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-blue-700 transition cursor-pointer">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDCCIcYaCNjeKx7x04PB3y0fum7UUeARbw",
+          authDomain: "digital-twin-lab-monitoring.firebaseapp.com",
+          databaseURL: "https://digital-twin-lab-monitoring-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "digital-twin-lab-monitoring",
+          storageBucket: "digital-twin-lab-monitoring.firebasestorage.app",
+          messagingSenderId: "774963342464",
+          appId: "1:774963342464:web:f9f0fbbacb702d7ddd8a65",
+          measurementId: "G-8T8X7D6YKL"
+        };
+
+        let database = null;
+
+        if (typeof firebaseConfig !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            
+            document.addEventListener("DOMContentLoaded", function() {
+                setTimeout(() => {
+                    const badge = document.getElementById('db-status-badge');
+                    if (badge) {
+                        badge.innerText = "● Firebase Connected";
+                        badge.className = "text-[10px] text-emerald-400 font-semibold";
+                    }
+                }, 1000);
+            });
+        }
+
+        function handleLogin() {
+            const email = document.getElementById('input-user').value;
+            const password = document.getElementById('input-pass').value;
+            const loginBtn = document.querySelector('#page-login button');
+            const originalText = loginBtn.innerText;
+            
+            loginBtn.innerText = "Authenticating...";
+            loginBtn.disabled = true;
+
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    document.getElementById('page-login').classList.add('hidden');
+                    document.getElementById('main-dashboard').classList.remove('hidden');
+                    setTimeout(() => {
+                        initChart();
+                        startRealtimeListener();
+                    }, 200);
+                })
+                .catch((error) => {
+                    alert("Login Gagal: Username atau Password salah!");
+                    loginBtn.innerText = originalText;
+                    loginBtn.disabled = false;
+                });
+        }
+
+        let lineChart;
+        let aiRegChart = null;
+
+
+        let lastChartUpdate = 0;
+        let lastHistoryUpdate = 0;
+
+        let chartLabels = [];
+        let chartData1 = [], chartData2 = [], chartData3 = []; 
+        let selectedNodeKey = null;
+        
+        let currentDataState = {
+            ac:   { key: 'ac', name: 'HVAC-01 Substation System', w:0, v:0, i:0, temp:0, r2:'0.9412', rmse:'0.124', m:1.15, c:242.4 },
+            psu:  { key: 'psu', name: 'PSU-01 Heavy Bench Feeder', w:0, v:0, i:0, temp:0, r2:'0.9241', rmse:'0.142', m:0.85, c:310.2 },
+            srv:  { key: 'srv', name: 'SRV-01 Telemetry Main Rack', w:0, v:0, i:0, temp:0, r2:'0.9588', rmse:'0.098', m:0.42, c:145.8 }
+        };
+
+        function handleSignOut() {
+            document.getElementById('main-dashboard').classList.add('hidden');
+            document.getElementById('page-login').classList.remove('hidden');
+            firebase.auth().signOut();
+        }
+
+        function switchMenu(menuName) {
+            document.querySelectorAll('.menu-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('content-' + menuName).classList.remove('hidden');
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.className = "w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer shadow-none";
+            });
+            document.getElementById('menu-' + menuName).className = "w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow cursor-pointer";
+        }
+
+        function initChart() {
+            if (lineChart) return;
+            const ctxPower = document.getElementById('chartLineRealtime').getContext('2d');
+            lineChart = new Chart(ctxPower, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        { label: 'HVAC-01 Load', data: chartData1, borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderWidth: 2, pointRadius: 1, tension: 0.1, fill: false },
+                        { label: 'PSU-01 Feeder', data: chartData2, borderColor: '#10b981', backgroundColor: '#10b981', borderWidth: 2, pointRadius: 1, tension: 0.1, fill: false },
+                        { label: 'SRV-01 Telemetry', data: chartData3, borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderWidth: 2, pointRadius: 1, tension: 0.1, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { font: { size: 10, family: 'Inter' } } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9, family: 'Inter' } } },
+                        y: { ticks: { font: { size: 9, family: 'Inter' } } }
+                    }
+                }
+            });
+        }
+
+        // =========================================================================
+        // 📡 FIX AUTO-SYNC TELEMETRY PULL ENGINE (SINKRON DENGAN SUB-NODE 'LATEST')
+        // =========================================================================
+        function startRealtimeListener() {
+
+if (!database) {
+    console.error("Firebase Database tidak tersedia");
+    return;
+}
+
+database.ref("devices").on("value", (snapshot) => {
+
+    const devicesData = snapshot.val();
+
+    if (!devicesData) return;
+
+    const pzem1 = devicesData.pzem1?.latest || {};
+    const pzem2 = devicesData.pzem2?.latest || {};
+    const pzem3 = devicesData.pzem3?.latest || {};
+
+    let ac_w = parseFloat(pzem1.power || 0);
+    let ac_v = parseFloat(pzem1.voltage || 0);
+    let ac_i = parseFloat(pzem1.current || 0);
+    let ac_t = parseFloat(pzem1.temperature || 0);
+
+    let psu_w = parseFloat(pzem2.power || 0);
+    let psu_v = parseFloat(pzem2.voltage || 0);
+    let psu_i = parseFloat(pzem2.current || 0);
+    let psu_t = parseFloat(pzem2.temperature || 0);
+
+    let srv_w = parseFloat(pzem3.power || 0);
+    let srv_v = parseFloat(pzem3.voltage || 0);
+    let srv_i = parseFloat(pzem3.current || 0);
+    let srv_t = parseFloat(pzem3.temperature || 0);
+
+    currentDataState.ac.w = ac_w.toFixed(1);
+    currentDataState.ac.v = ac_v.toFixed(1);
+    currentDataState.ac.i = ac_i.toFixed(2);
+    currentDataState.ac.temp = ac_t.toFixed(1);
+
+    currentDataState.psu.w = psu_w.toFixed(1);
+    currentDataState.psu.v = psu_v.toFixed(1);
+    currentDataState.psu.i = psu_i.toFixed(2);
+    currentDataState.psu.temp = psu_t.toFixed(1);
+
+    currentDataState.srv.w = srv_w.toFixed(1);
+    currentDataState.srv.v = srv_v.toFixed(1);
+    currentDataState.srv.i = srv_i.toFixed(2);
+    currentDataState.srv.temp = srv_t.toFixed(1);
+
+    document.getElementById('b1-w').innerText = currentDataState.ac.w;
+    document.getElementById('b1-v').innerText = currentDataState.ac.v;
+    document.getElementById('b1-i').innerText = currentDataState.ac.i;
+    document.getElementById('b1-temp').innerText = currentDataState.ac.temp;
+
+    document.getElementById('b2-w').innerText = currentDataState.psu.w;
+    document.getElementById('b2-v').innerText = currentDataState.psu.v;
+    document.getElementById('b2-i').innerText = currentDataState.psu.i;
+    document.getElementById('b2-temp').innerText = currentDataState.psu.temp;
+
+    document.getElementById('b3-w').innerText = currentDataState.srv.w;
+    document.getElementById('b3-v').innerText = currentDataState.srv.v;
+    document.getElementById('b3-i').innerText = currentDataState.srv.i;
+    document.getElementById('b3-temp').innerText = currentDataState.srv.temp;
+
+    let total_w = ac_w + psu_w + srv_w;
+
+    document.getElementById('total-w').innerText =
+        total_w.toFixed(1);
+
+    document.getElementById('total-cash').innerText =
+        "Rp " +
+        ((total_w / 1000) * 1444.70).toLocaleString(
+            'id-ID',
+            {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }
+        );
+
+        console.log("AC W =", ac_w);
+        console.log("PSU W =", psu_w);
+        console.log("SRV W =", srv_w);
+
+        const nowMs = Date.now();
+
+        // ======================
+// HISTORY LOG
+// ======================
+
+const tbody = document.getElementById("table-log-body");
+const emptyRow = document.getElementById("no-data-row");
+
+if (emptyRow) {
+    emptyRow.remove();
+}
+
+const timestamp = new Date().toLocaleString('id-ID');
+
+const row1 = `
+<tr class="border-b border-slate-100">
+    <td class="p-3">${timestamp}</td>
+    <td class="p-3">HVAC-01</td>
+    <td class="p-3">${ac_w.toFixed(1)} W</td>
+    <td class="p-3">${ac_v.toFixed(1)} V</td>
+    <td class="p-3">${ac_t.toFixed(1)} °C</td>
+</tr>
+`;
+
+const row2 = `
+<tr class="border-b border-slate-100">
+    <td class="p-3">${timestamp}</td>
+    <td class="p-3">PSU-01</td>
+    <td class="p-3">${psu_w.toFixed(1)} W</td>
+    <td class="p-3">${psu_v.toFixed(1)} V</td>
+    <td class="p-3">${psu_t.toFixed(1)} °C</td>
+</tr>
+`;
+
+const row3 = `
+<tr class="border-b border-slate-100">
+    <td class="p-3">${timestamp}</td>
+    <td class="p-3">SRV-01</td>
+    <td class="p-3">${srv_w.toFixed(1)} W</td>
+    <td class="p-3">${srv_v.toFixed(1)} V</td>
+    <td class="p-3">${psu_t.toFixed(1)} °C</td>
+</tr>
+`;
+
+if (nowMs - lastChartUpdate >= 5000) {
+
+    let now = new Date().toLocaleTimeString();
+
+    if (chartLabels.length >= 20) {
+        chartLabels.shift();
+        chartData1.shift();
+        chartData2.shift();
+        chartData3.shift();
+    }
+
+    chartLabels.push(now);
+
+    chartData1.push(ac_w);
+    chartData2.push(psu_w);
+    chartData3.push(srv_w);
+
+    tbody.insertAdjacentHTML("afterbegin",row3 + row2 + row1);
+
+    while (tbody.children.length > 30) {
+    tbody.removeChild(tbody.lastChild);
+    }
+    if (lineChart) {
+        lineChart.update('none');
+    }
+
+    lastChartUpdate = nowMs;
+}
+
+    if (selectedNodeKey) {
+        refreshAIPanelVisuals();
+    }
+
+    console.log("Realtime Firebase Update");
+});
+
+}
+function refreshAIPanelVisuals() {
+
+let dev = currentDataState[selectedNodeKey];
+
+if (!dev) return;
+
+document.getElementById('ai-asset-name').innerText =
+    dev.name;
+
+document.getElementById('ai-current-w').innerText =
+    dev.w + " W";
+
+document.getElementById('ai-node-temp').innerText =
+    dev.temp + "°C";
+
+document.getElementById('ai-r2').innerText =
+    dev.r2;
+
+document.getElementById('ai-rmse').innerText =
+    dev.rmse;
+
+document.getElementById('ai-formula-text').innerText =
+    `y = ${Number(dev.m).toFixed(2)}x + ${Number(dev.c).toFixed(1)}`;
+
+let wNum = parseFloat(dev.w || 0);
+
+document.getElementById('ai-p5').innerText =
+    (wNum + dev.m * 2).toFixed(1) + " W";
+
+document.getElementById('ai-p15').innerText =
+    (wNum + dev.m * 5).toFixed(1) + " W";
+
+document.getElementById('ai-p30').innerText =
+    (wNum + dev.m * 9).toFixed(1) + " W";
+}
+
+function initAiRegressionChart() {
+
+console.log("AI CHART START");
+
+let dev = currentDataState[selectedNodeKey];
+
+console.log(dev);
+
+if (!dev) return;
+
+const canvas =
+    document.getElementById('chartAiRegression');
+
+console.log(canvas);
+
+if (!canvas) return;
+
+const ctx = canvas.getContext('2d');
+
+if (aiRegChart) {
+    aiRegChart.destroy();
+}
+
+aiRegChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+        datasets: [
+            {
+                label: 'Actual',
+                data: [
+                    {x:25.5,y:540},
+                    {x:26.0,y:545},
+                    {x:26.5,y:548},
+                    {x:27.0,y:560},
+                    {x:27.5,y:565}
+                ]
+            },
+            {
+                label: 'Regression',
+                type: 'line',
+                data: [
+                    {x:25.5,y:540},
+                    {x:29.5,y:585}
+                ]
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+console.log("CHART CREATED");
+}
+
+
+function triggerNodeClick(nodeKey) {
+
+selectedNodeKey = nodeKey;
+
+document
+    .getElementById('ai-placeholder')
+    .classList.add('hidden');
+
+document
+    .getElementById('ai-result-box')
+    .classList.remove('hidden');
+
+refreshAIPanelVisuals();
+
+setTimeout(() => {
+    initAiRegressionChart();
+}, 50);
+}
+function triggerNodeClick(nodeKey) {
+
+selectedNodeKey = nodeKey;
+
+document
+    .getElementById('ai-placeholder')
+    .classList.add('hidden');
+
+document
+    .getElementById('ai-result-box')
+    .classList.remove('hidden');
+
+refreshAIPanelVisuals();
+
+setTimeout(() => {
+    initAiRegressionChart();
+}, 50);
+}
+    </script>
+</body>
+</html>
