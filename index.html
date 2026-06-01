@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ELITE Panel - Lab Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -324,6 +324,23 @@
             });
         }
 
+        let lineChart;
+        let aiRegChart = null;
+        let lastChartUpdate = 0;
+
+        let chartLabels = [];
+        let chartData1 = [], chartData2 = [], chartData3 = []; 
+        let chartDataTemp1 = [], chartDataTemp2 = [], chartDataTemp3 = [];
+        
+        let selectedNodeKey = null;
+        
+        // Tempat menyimpan hasil kalkulasi AI riil dari sensor lapangan
+        let currentDataState = {
+            ac:   { key: 'ac', name: 'HVAC-01 Substation System', w:0, v:0, i:0, temp:0, r2:'0.0000', rmse:'0.000', m:0, c:0 },
+            psu:  { key: 'psu', name: 'PSU-01 Heavy Bench Feeder', w:0, v:0, i:0, temp:0, r2:'0.0000', rmse:'0.000', m:0, c:0 },
+            srv:  { key: 'srv', name: 'SRV-01 Telemetry Main Rack', w:0, v:0, i:0, temp:0, r2:'0.0000', rmse:'0.000', m:0, c:0 }
+        };
+
         function handleLogin() {
             const email = document.getElementById('input-user').value;
             const password = document.getElementById('input-pass').value;
@@ -348,23 +365,6 @@
                     loginBtn.disabled = false;
                 });
         }
-
-        let lineChart;
-        let aiRegChart = null;
-
-
-        let lastChartUpdate = 0;
-        let lastHistoryUpdate = 0;
-
-        let chartLabels = [];
-        let chartData1 = [], chartData2 = [], chartData3 = []; 
-        let selectedNodeKey = null;
-        
-        let currentDataState = {
-            ac:   { key: 'ac', name: 'HVAC-01 Substation System', w:0, v:0, i:0, temp:0, r2:'0.9412', rmse:'0.124', m:1.15, c:242.4 },
-            psu:  { key: 'psu', name: 'PSU-01 Heavy Bench Feeder', w:0, v:0, i:0, temp:0, r2:'0.9241', rmse:'0.142', m:0.85, c:310.2 },
-            srv:  { key: 'srv', name: 'SRV-01 Telemetry Main Rack', w:0, v:0, i:0, temp:0, r2:'0.9588', rmse:'0.098', m:0.42, c:145.8 }
-        };
 
         function handleSignOut() {
             document.getElementById('main-dashboard').classList.add('hidden');
@@ -406,301 +406,296 @@
             });
         }
 
-        // =========================================================================
-        // 📡 FIX AUTO-SYNC TELEMETRY PULL ENGINE (SINKRON DENGAN SUB-NODE 'LATEST')
-        // =========================================================================
+        // ==========================================
+        // 🧠 AI ENGINE: MACHINE LEARNING REGRESSION LOGIC
+        // ==========================================
+        function calculateLinearRegression(X, Y) {
+            let n = X.length;
+            if (n < 2) {
+                return { m: 0, c: Y[0] || 0, r2: '0.0000', rmse: '0.000' };
+            }
+
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += X[i];
+                sumY += Y[i];
+                sumXY += X[i] * Y[i];
+                sumXX += X[i] * X[i];
+                sumYY += Y[i] * Y[i];
+            }
+
+            // Hitung Slope (m) & Intercept (c) menggunakan Rumus Least Squares
+            let denominator = (n * sumXX) - (sumX * sumX);
+            let m = denominator !== 0 ? ((n * sumXY) - (sumX * sumY)) / denominator : 0;
+            let c = (sumY - (m * sumX)) / n;
+
+            // Hitung Evaluasi Model (RMSE dan R2 Score)
+            let totalErrorSquares = 0;
+            let totalSsdY = 0; 
+            let meanY = sumY / n;
+
+            for (let i = 0; i < n; i++) {
+                let yPred = (m * X[i]) + c;
+                totalErrorSquares += Math.pow(Y[i] - yPred, 2);
+                totalSsdY += Math.pow(Y[i] - meanY, 2);
+            }
+
+            let rmse = Math.sqrt(totalErrorSquares / n);
+            let r2 = totalSsdY !== 0 ? 1 - (totalErrorSquares / totalSsdY) : 0;
+
+            // Mengantisipasi keanehan batas bawah nilai R2
+            if (r2 < 0) r2 = 0;
+
+            return {
+                m: m,
+                c: c,
+                r2: r2.toFixed(4),
+                rmse: rmse.toFixed(3)
+            };
+        }
+
         function startRealtimeListener() {
-
-if (!database) {
-    console.error("Firebase Database tidak tersedia");
-    return;
-}
-
-database.ref("devices").on("value", (snapshot) => {
-
-    const devicesData = snapshot.val();
-
-    if (!devicesData) return;
-
-    const pzem1 = devicesData.pzem1?.latest || {};
-    const pzem2 = devicesData.pzem2?.latest || {};
-    const pzem3 = devicesData.pzem3?.latest || {};
-
-    let ac_w = parseFloat(pzem1.power || 0);
-    let ac_v = parseFloat(pzem1.voltage || 0);
-    let ac_i = parseFloat(pzem1.current || 0);
-    let ac_t = parseFloat(pzem1.temperature || 0);
-
-    let psu_w = parseFloat(pzem2.power || 0);
-    let psu_v = parseFloat(pzem2.voltage || 0);
-    let psu_i = parseFloat(pzem2.current || 0);
-    let psu_t = parseFloat(pzem2.temperature || 0);
-
-    let srv_w = parseFloat(pzem3.power || 0);
-    let srv_v = parseFloat(pzem3.voltage || 0);
-    let srv_i = parseFloat(pzem3.current || 0);
-    let srv_t = parseFloat(pzem3.temperature || 0);
-
-    currentDataState.ac.w = ac_w.toFixed(1);
-    currentDataState.ac.v = ac_v.toFixed(1);
-    currentDataState.ac.i = ac_i.toFixed(2);
-    currentDataState.ac.temp = ac_t.toFixed(1);
-
-    currentDataState.psu.w = psu_w.toFixed(1);
-    currentDataState.psu.v = psu_v.toFixed(1);
-    currentDataState.psu.i = psu_i.toFixed(2);
-    currentDataState.psu.temp = psu_t.toFixed(1);
-
-    currentDataState.srv.w = srv_w.toFixed(1);
-    currentDataState.srv.v = srv_v.toFixed(1);
-    currentDataState.srv.i = srv_i.toFixed(2);
-    currentDataState.srv.temp = srv_t.toFixed(1);
-
-    document.getElementById('b1-w').innerText = currentDataState.ac.w;
-    document.getElementById('b1-v').innerText = currentDataState.ac.v;
-    document.getElementById('b1-i').innerText = currentDataState.ac.i;
-    document.getElementById('b1-temp').innerText = currentDataState.ac.temp;
-
-    document.getElementById('b2-w').innerText = currentDataState.psu.w;
-    document.getElementById('b2-v').innerText = currentDataState.psu.v;
-    document.getElementById('b2-i').innerText = currentDataState.psu.i;
-    document.getElementById('b2-temp').innerText = currentDataState.psu.temp;
-
-    document.getElementById('b3-w').innerText = currentDataState.srv.w;
-    document.getElementById('b3-v').innerText = currentDataState.srv.v;
-    document.getElementById('b3-i').innerText = currentDataState.srv.i;
-    document.getElementById('b3-temp').innerText = currentDataState.srv.temp;
-
-    let total_w = ac_w + psu_w + srv_w;
-
-    document.getElementById('total-w').innerText =
-        total_w.toFixed(1);
-
-    document.getElementById('total-cash').innerText =
-        "Rp " +
-        ((total_w / 1000) * 1444.70).toLocaleString(
-            'id-ID',
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            if (!database) {
+                console.error("Firebase Database tidak tersedia");
+                return;
             }
-        );
 
-        console.log("AC W =", ac_w);
-        console.log("PSU W =", psu_w);
-        console.log("SRV W =", srv_w);
+            database.ref("devices").on("value", (snapshot) => {
+                const devicesData = snapshot.val();
+                if (!devicesData) return;
 
-        const nowMs = Date.now();
+                const pzem1 = devicesData.pzem1?.latest || {};
+                const pzem2 = devicesData.pzem2?.latest || {};
+                const pzem3 = devicesData.pzem3?.latest || {};
 
-        // ======================
-// HISTORY LOG
-// ======================
+                let ac_w = parseFloat(pzem1.power || 0);
+                let ac_v = parseFloat(pzem1.voltage || 0);
+                let ac_i = parseFloat(pzem1.current || 0);
+                let ac_t = parseFloat(pzem1.temperature || 0);
 
-const tbody = document.getElementById("table-log-body");
-const emptyRow = document.getElementById("no-data-row");
+                let psu_w = parseFloat(pzem2.power || 0);
+                let psu_v = parseFloat(pzem2.voltage || 0);
+                let psu_i = parseFloat(pzem2.current || 0);
+                let psu_t = parseFloat(pzem2.temperature || 0);
 
-if (emptyRow) {
-    emptyRow.remove();
-}
+                let srv_w = parseFloat(pzem3.power || 0);
+                let srv_v = parseFloat(pzem3.voltage || 0);
+                let srv_i = parseFloat(pzem3.current || 0);
+                let srv_t = parseFloat(pzem3.temperature || 0);
 
-const timestamp = new Date().toLocaleString('id-ID');
+                // Taruh data ke variabel state sementara
+                currentDataState.ac.w = ac_w.toFixed(1);
+                currentDataState.ac.v = ac_v.toFixed(1);
+                currentDataState.ac.i = ac_i.toFixed(2);
+                currentDataState.ac.temp = ac_t.toFixed(1);
 
-const row1 = `
-<tr class="border-b border-slate-100">
-    <td class="p-3">${timestamp}</td>
-    <td class="p-3">HVAC-01</td>
-    <td class="p-3">${ac_w.toFixed(1)} W</td>
-    <td class="p-3">${ac_v.toFixed(1)} V</td>
-    <td class="p-3">${ac_t.toFixed(1)} °C</td>
-</tr>
-`;
+                currentDataState.psu.w = psu_w.toFixed(1);
+                currentDataState.psu.v = psu_v.toFixed(1);
+                currentDataState.psu.i = psu_i.toFixed(2);
+                currentDataState.psu.temp = psu_t.toFixed(1);
 
-const row2 = `
-<tr class="border-b border-slate-100">
-    <td class="p-3">${timestamp}</td>
-    <td class="p-3">PSU-01</td>
-    <td class="p-3">${psu_w.toFixed(1)} W</td>
-    <td class="p-3">${psu_v.toFixed(1)} V</td>
-    <td class="p-3">${psu_t.toFixed(1)} °C</td>
-</tr>
-`;
+                currentDataState.srv.w = srv_w.toFixed(1);
+                currentDataState.srv.v = srv_v.toFixed(1);
+                currentDataState.srv.i = srv_i.toFixed(2);
+                currentDataState.srv.temp = srv_t.toFixed(1);
 
-const row3 = `
-<tr class="border-b border-slate-100">
-    <td class="p-3">${timestamp}</td>
-    <td class="p-3">SRV-01</td>
-    <td class="p-3">${srv_w.toFixed(1)} W</td>
-    <td class="p-3">${srv_v.toFixed(1)} V</td>
-    <td class="p-3">${psu_t.toFixed(1)} °C</td>
-</tr>
-`;
+                document.getElementById('b1-w').innerText = currentDataState.ac.w;
+                document.getElementById('b1-v').innerText = currentDataState.ac.v;
+                document.getElementById('b1-i').innerText = currentDataState.ac.i;
+                document.getElementById('b1-temp').innerText = currentDataState.ac.temp;
 
-if (nowMs - lastChartUpdate >= 5000) {
+                document.getElementById('b2-w').innerText = currentDataState.psu.w;
+                document.getElementById('b2-v').innerText = currentDataState.psu.v;
+                document.getElementById('b2-i').innerText = currentDataState.psu.i;
+                document.getElementById('b2-temp').innerText = currentDataState.psu.temp;
 
-    let now = new Date().toLocaleTimeString();
+                document.getElementById('b3-w').innerText = currentDataState.srv.w;
+                document.getElementById('b3-v').innerText = currentDataState.srv.v;
+                document.getElementById('b3-i').innerText = currentDataState.srv.i;
+                document.getElementById('b3-temp').innerText = currentDataState.srv.temp;
 
-    if (chartLabels.length >= 20) {
-        chartLabels.shift();
-        chartData1.shift();
-        chartData2.shift();
-        chartData3.shift();
-    }
+                let total_w = ac_w + psu_w + srv_w;
+                document.getElementById('total-w').innerText = total_w.toFixed(1);
 
-    chartLabels.push(now);
+                document.getElementById('total-cash').innerText =
+                    "Rp " + ((total_w / 1000) * 1444.70).toLocaleString('id-ID', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
 
-    chartData1.push(ac_w);
-    chartData2.push(psu_w);
-    chartData3.push(srv_w);
+                const nowMs = Date.now();
+                const tbody = document.getElementById("table-log-body");
+                const emptyRow = document.getElementById("no-data-row");
 
-    tbody.insertAdjacentHTML("afterbegin",row3 + row2 + row1);
+                if (emptyRow) { emptyRow.remove(); }
 
-    while (tbody.children.length > 30) {
-    tbody.removeChild(tbody.lastChild);
-    }
-    if (lineChart) {
-        lineChart.update('none');
-    }
+                const timestamp = new Date().toLocaleString('id-ID');
 
-    lastChartUpdate = nowMs;
-}
+                const row1 = `<tr class="border-b border-slate-100"><td class="p-3">${timestamp}</td><td class="p-3">HVAC-01</td><td class="p-3">${ac_w.toFixed(1)} W</td><td class="p-3">${ac_v.toFixed(1)} V</td><td class="p-3">${ac_t.toFixed(1)} °C</td></tr>`;
+                const row2 = `<tr class="border-b border-slate-100"><td class="p-3">${timestamp}</td><td class="p-3">PSU-01</td><td class="p-3">${psu_w.toFixed(1)} W</td><td class="p-3">${psu_v.toFixed(1)} V</td><td class="p-3">${psu_t.toFixed(1)} °C</td></tr>`;
+                const row3 = `<tr class="border-b border-slate-100"><td class="p-3">${timestamp}</td><td class="p-3">SRV-01</td><td class="p-3">${srv_w.toFixed(1)} W</td><td class="p-3">${srv_v.toFixed(1)} V</td><td class="p-3">${srv_t.toFixed(1)} °C</td></tr>`;
 
-    if (selectedNodeKey) {
-        refreshAIPanelVisuals();
-    }
+                if (nowMs - lastChartUpdate >= 5000) {
+                    let now = new Date().toLocaleTimeString();
 
-    console.log("Realtime Firebase Update");
-});
+                    if (chartLabels.length >= 25) {
+                        chartLabels.shift();
+                        chartData1.shift(); chartData2.shift(); chartData3.shift();
+                        chartDataTemp1.shift(); chartDataTemp2.shift(); chartDataTemp3.shift();
+                    }
 
-}
-function refreshAIPanelVisuals() {
+                    chartLabels.push(now);
+                    chartData1.push(ac_w); chartData2.push(psu_w); chartData3.push(srv_w);
+                    chartDataTemp1.push(ac_t); chartDataTemp2.push(psu_t); chartDataTemp3.push(srv_t);
 
-let dev = currentDataState[selectedNodeKey];
+                    tbody.insertAdjacentHTML("afterbegin", row3 + row2 + row1);
 
-if (!dev) return;
+                    while (tbody.children.length > 30) {
+                        tbody.removeChild(tbody.lastChild);
+                    }
+                    if (lineChart) {
+                        lineChart.update('none');
+                    }
 
-document.getElementById('ai-asset-name').innerText =
-    dev.name;
+                    // Pemicu Otomatis: Hitung Ulang Persamaan AI dari data Sensor Lapangan terbaru
+                    let aiAc = calculateLinearRegression(chartDataTemp1, chartData1);
+                    currentDataState.ac.m = aiAc.m; currentDataState.ac.c = aiAc.c;
+                    currentDataState.ac.r2 = aiAc.r2; currentDataState.ac.rmse = aiAc.rmse;
 
-document.getElementById('ai-current-w').innerText =
-    dev.w + " W";
+                    let aiPsu = calculateLinearRegression(chartDataTemp2, chartData2);
+                    currentDataState.psu.m = aiPsu.m; currentDataState.psu.c = aiPsu.c;
+                    currentDataState.psu.r2 = aiPsu.r2; currentDataState.psu.rmse = aiPsu.rmse;
 
-document.getElementById('ai-node-temp').innerText =
-    dev.temp + "°C";
+                    let aiSrv = calculateLinearRegression(chartDataTemp3, chartData3);
+                    currentDataState.srv.m = aiSrv.m; currentDataState.srv.c = aiSrv.c;
+                    currentDataState.srv.r2 = aiSrv.r2; currentDataState.srv.rmse = aiSrv.rmse;
 
-document.getElementById('ai-r2').innerText =
-    dev.r2;
+                    if (selectedNodeKey) {
+                        updateLiveAiChart();
+                    }
 
-document.getElementById('ai-rmse').innerText =
-    dev.rmse;
+                    lastChartUpdate = nowMs;
+                }
 
-document.getElementById('ai-formula-text').innerText =
-    `y = ${Number(dev.m).toFixed(2)}x + ${Number(dev.c).toFixed(1)}`;
+                if (selectedNodeKey) {
+                    refreshAIPanelVisuals();
+                }
+            });
+        }
 
-let wNum = parseFloat(dev.w || 0);
+        function refreshAIPanelVisuals() {
+            let dev = currentDataState[selectedNodeKey];
+            if (!dev) return;
 
-document.getElementById('ai-p5').innerText =
-    (wNum + dev.m * 2).toFixed(1) + " W";
+            document.getElementById('ai-asset-name').innerText = dev.name;
+            document.getElementById('ai-current-w').innerText = dev.w + " W";
+            document.getElementById('ai-node-temp').innerText = dev.temp + "°C";
+            document.getElementById('ai-r2').innerText = dev.r2;
+            document.getElementById('ai-rmse').innerText = dev.rmse;
+            document.getElementById('ai-formula-text').innerText = `y = ${Number(dev.m).toFixed(2)}x + ${Number(dev.c).toFixed(1)}`;
 
-document.getElementById('ai-p15').innerText =
-    (wNum + dev.m * 5).toFixed(1) + " W";
+            // Menggunakan Model AI untuk melakukan forecasting masa depan dari titik saat ini
+            let currentTemp = parseFloat(dev.temp || 0);
+            
+            // Asumsi skenario peningkatan tren beban termal linier ke depan (+2°C, +4°C, +6°C)
+            document.getElementById('ai-p5').innerText = ((dev.m * (currentTemp + 0.5)) + dev.c).toFixed(1) + " W";
+            document.getElementById('ai-p15').innerText = ((dev.m * (currentTemp + 1.2)) + dev.c).toFixed(1) + " W";
+            document.getElementById('ai-p30').innerText = ((dev.m * (currentTemp + 2.0)) + dev.c).toFixed(1) + " W";
+        }
 
-document.getElementById('ai-p30').innerText =
-    (wNum + dev.m * 9).toFixed(1) + " W";
-}
+        function initAiRegressionChart(arrayTemperatur, arrayWatt, m, c) {
+            const canvas = document.getElementById('chartAiRegression');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
 
-function initAiRegressionChart() {
-
-console.log("AI CHART START");
-
-let dev = currentDataState[selectedNodeKey];
-
-console.log(dev);
-
-if (!dev) return;
-
-const canvas =
-    document.getElementById('chartAiRegression');
-
-console.log(canvas);
-
-if (!canvas) return;
-
-const ctx = canvas.getContext('2d');
-
-if (aiRegChart) {
-    aiRegChart.destroy();
-}
-
-aiRegChart = new Chart(ctx, {
-    type: 'scatter',
-    data: {
-        datasets: [
-            {
-                label: 'Actual',
-                data: [
-                    {x:25.5,y:540},
-                    {x:26.0,y:545},
-                    {x:26.5,y:548},
-                    {x:27.0,y:560},
-                    {x:27.5,y:565}
-                ]
-            },
-            {
-                label: 'Regression',
-                type: 'line',
-                data: [
-                    {x:25.5,y:540},
-                    {x:29.5,y:585}
-                ]
+            if (aiRegChart) {
+                aiRegChart.destroy();
             }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false
-    }
-});
 
-console.log("CHART CREATED");
-}
+            let koordinatAktual = arrayTemperatur.map((temp, index) => {
+                return { x: parseFloat(temp), y: parseFloat(arrayWatt[index]) };
+            });
 
+            let minX = arrayTemperatur.length > 0 ? Math.min(...arrayTemperatur) - 0.5 : 20;
+            let maxX = arrayTemperatur.length > 0 ? Math.max(...arrayTemperatur) + 0.5 : 35;
+            let garisRegresi = [
+                { x: minX, y: (m * minX) + c },
+                { x: maxX, y: (m * maxX) + c }
+            ];
 
-function triggerNodeClick(nodeKey) {
+            aiRegChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Actual Sensor Data',
+                            data: koordinatAktual,
+                            borderColor: '#3b82f6',
+                            backgroundColor: '#3b82f6',
+                            pointRadius: 4
+                        },
+                        {
+                            label: 'Regression Line',
+                            type: 'line',
+                            data: garisRegresi,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Temp (°C)', font: { size: 9 } }, ticks: { font: { size: 8 } } },
+                        y: { title: { display: true, text: 'Load (W)', font: { size: 9 } }, ticks: { font: { size: 8 } } }
+                    }
+                }
+            });
+        }
 
-selectedNodeKey = nodeKey;
+        function updateLiveAiChart() {
+            let dev = currentDataState[selectedNodeKey];
+            let targetTempArray = [];
+            let targetWattArray = [];
 
-document
-    .getElementById('ai-placeholder')
-    .classList.add('hidden');
+            if (selectedNodeKey === 'ac') { targetTempArray = chartDataTemp1; targetWattArray = chartData1; }
+            else if (selectedNodeKey === 'psu') { targetTempArray = chartDataTemp2; targetWattArray = chartData2; }
+            else if (selectedNodeKey === 'srv') { targetTempArray = chartDataTemp3; targetWattArray = chartData3; }
 
-document
-    .getElementById('ai-result-box')
-    .classList.remove('hidden');
+            if (targetTempArray.length === 0) return;
 
-refreshAIPanelVisuals();
+            initAiRegressionChart(targetTempArray, targetWattArray, parseFloat(dev.m), parseFloat(dev.c));
+        }
 
-setTimeout(() => {
-    initAiRegressionChart();
-}, 50);
-}
-function triggerNodeClick(nodeKey) {
+        function triggerNodeClick(nodeKey) {
+            selectedNodeKey = nodeKey;
 
-selectedNodeKey = nodeKey;
+            document.getElementById('ai-placeholder').classList.add('hidden');
+            document.getElementById('ai-result-box').classList.remove('hidden');
 
-document
-    .getElementById('ai-placeholder')
-    .classList.add('hidden');
+            refreshAIPanelVisuals();
 
-document
-    .getElementById('ai-result-box')
-    .classList.remove('hidden');
+            let dev = currentDataState[nodeKey];
+            let targetTempArray = [];
+            let targetWattArray = [];
 
-refreshAIPanelVisuals();
+            if (nodeKey === 'ac') { targetTempArray = chartDataTemp1; targetWattArray = chartData1; }
+            else if (nodeKey === 'psu') { targetTempArray = chartDataTemp2; targetWattArray = chartData2; }
+            else if (nodeKey === 'srv') { targetTempArray = chartDataTemp3; targetWattArray = chartData3; }
 
-setTimeout(() => {
-    initAiRegressionChart();
-}, 50);
-}
+            setTimeout(() => {
+                if(targetTempArray.length === 0) {
+                    targetTempArray = [parseFloat(dev.temp)];
+                    targetWattArray = [parseFloat(dev.w)];
+                }
+                initAiRegressionChart(targetTempArray, targetWattArray, parseFloat(dev.m), parseFloat(dev.c));
+            }, 50);
+        }
     </script>
 </body>
 </html>
