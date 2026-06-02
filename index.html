@@ -81,15 +81,8 @@
                                 <div>Arus: <span id="b1-i" class="text-slate-700 font-bold">0</span> A</div>
                             </div>
                         </div>
-                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500">
-                            Instrument Temp:
-                            <span id="b1-temp" class="text-slate-800 font-bold">0.0</span>°C
-                        
-                            <br>
-                        
-                            Energy:
-                            <span id="b1-energy" class="text-slate-800 font-bold">0.000</span>
-                            kWh
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b1-temp" class="text-slate-800 font-bold">0.0</span>°C
                         </div>
                     </div>
                     
@@ -105,15 +98,8 @@
                                 <div>Arus: <span id="b2-i" class="text-slate-700 font-bold">0</span> A</div>
                             </div>
                         </div>
-                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500">
-                            Instrument Temp:
-                            <span id="b2-temp" class="text-slate-800 font-bold">0.0</span>°C
-                        
-                            <br>
-                        
-                            Energy:
-                            <span id="b2-energy" class="text-slate-800 font-bold">0.000</span>
-                            kWh
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b2-temp" class="text-slate-800 font-bold">0.0</span>°C
                         </div>
                     </div>
 
@@ -129,16 +115,10 @@
                                 <div>Arus: <span id="b3-i" class="text-slate-700 font-bold">0</span> A</div>
                             </div>
                         </div>
-                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500">
-                            Instrument Temp:
-                            <span id="b3-temp" class="text-slate-800 font-bold">0.0</span>°C
-                        
-                            <br>
-                        
-                            Energy:
-                            <span id="b3-energy" class="text-slate-800 font-bold">0.000</span>
-                            kWh
+                        <div class="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-xs text-slate-500 font-medium">
+                            Instrument Temp: <span id="b3-temp" class="text-slate-800 font-bold">0.0</span>°C
                         </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -492,19 +472,16 @@
                 let ac_v = parseFloat(pzem1.voltage || 0);
                 let ac_i = parseFloat(pzem1.current || 0);
                 let ac_t = parseFloat(pzem1.temperature || 0);
-                let ac_e = parseFloat(pzem1.energy || 0);
 
                 let psu_w = parseFloat(pzem2.power || 0);
                 let psu_v = parseFloat(pzem2.voltage || 0);
                 let psu_i = parseFloat(pzem2.current || 0);
                 let psu_t = parseFloat(pzem2.temperature || 0);
-                let psu_e = parseFloat(pzem2.energy || 0);
 
                 let srv_w = parseFloat(pzem3.power || 0);
                 let srv_v = parseFloat(pzem3.voltage || 0);
                 let srv_i = parseFloat(pzem3.current || 0);
                 let srv_t = parseFloat(pzem3.temperature || 0);
-                let srv_e = parseFloat(pzem3.energy || 0);
 
                 // Taruh data ke variabel state sementara
                 currentDataState.ac.w = ac_w.toFixed(1);
@@ -526,19 +503,16 @@
                 document.getElementById('b1-v').innerText = currentDataState.ac.v;
                 document.getElementById('b1-i').innerText = currentDataState.ac.i;
                 document.getElementById('b1-temp').innerText = currentDataState.ac.temp;
-                document.getElementById('b1-energy').innerText = ac_e.toFixed(3);
 
                 document.getElementById('b2-w').innerText = currentDataState.psu.w;
                 document.getElementById('b2-v').innerText = currentDataState.psu.v;
                 document.getElementById('b2-i').innerText = currentDataState.psu.i;
                 document.getElementById('b2-temp').innerText = currentDataState.psu.temp;
-                document.getElementById('b2-energy').innerText = psu_e.toFixed(3);
 
                 document.getElementById('b3-w').innerText = currentDataState.srv.w;
                 document.getElementById('b3-v').innerText = currentDataState.srv.v;
                 document.getElementById('b3-i').innerText = currentDataState.srv.i;
                 document.getElementById('b3-temp').innerText = currentDataState.srv.temp;
-                document.getElementById('b3-energy').innerText = srv_e.toFixed(3);
 
                 let total_w = ac_w + psu_w + srv_w;
                 document.getElementById('total-w').innerText = total_w.toFixed(1);
